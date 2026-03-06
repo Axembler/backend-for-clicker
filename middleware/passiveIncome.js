@@ -1,7 +1,7 @@
 const User = require('../models/User')
 
 const MAX_OFFLINE_HOURS = 8
-const MIN_OFFLINE_SECONDS = 1
+const MIN_OFFLINE_SECONDS = 4
 
 const passiveIncome = async (req, res, next) => {
   try {
@@ -13,7 +13,6 @@ const passiveIncome = async (req, res, next) => {
 
     const now = new Date()
 
-    // ─── Определяем реальное время ухода ───────────────────────────────────
     const serverLastOnline = user.lastOnline ? new Date(user.lastOnline) : null
 
     // Клиент присылает fallbackSleepAt — время, когда приложение ушло в фон

@@ -51,12 +51,18 @@ router.post('/wakeup', auth, passiveIncome, (req, res) => {
 // Фиксирует время ухода
 router.post('/sleep', auth, async (req, res) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, { lastOnline: new Date() })
+    const clientSleepAt = req.body?.sleepAt
+    const now = Date.now()
+    
+    const lastOnline = (clientSleepAt && clientSleepAt <= now)
+      ? new Date(clientSleepAt)
+      : new Date()
+
+    await User.findByIdAndUpdate(req.user.id, { lastOnline })
     res.json({ ok: true })
   } catch {
     res.status(500).json({ message: 'Ошибка сервера' })
   }
 })
-
 
 module.exports = router
