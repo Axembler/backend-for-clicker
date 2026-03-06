@@ -12,31 +12,58 @@ const passiveIncome = async (req, res, next) => {
     }
 
     const now = new Date()
-    const lastOnline = new Date(user.lastOnline)
 
-    const diffSeconds = Math.floor((now - lastOnline) / 1000)
+    // ─── Определяем реальное время ухода ───────────────────────────────────
+    const serverLastOnline = user.lastOnline ? new Date(user.lastOnline) : null
 
-    // Если прошло хотя бы 1 секунда и есть пассивный доход
-    if (diffSeconds >= MIN_OFFLINE_SECONDS && user.passiveIncome > 0) {
-      const maxSeconds = MAX_OFFLINE_HOURS * 3600
-      const effectiveSeconds = Math.min(diffSeconds, maxSeconds)
-      const earned = Math.floor(user.passiveIncome * effectiveSeconds)
+    // Клиент присылает fallbackSleepAt — время, когда приложение ушло в фон
+    // Это нужно, если /sleep не успел выполниться до убийства процесса
+    const clientFallback = req.body?.fallbackSleepAt
+      ? new Date(req.body.fallbackSleepAt)
+      : null
 
-      if (earned > 0) {
-        user.coins += earned
-        user.totalCoins += earned
-        req.passiveEarned = earned
-        req.passiveSeconds = effectiveSeconds
+    // Защита
+    const isFutureDate = (date) => date && date > now
+
+    let sleepAt = serverLastOnline
+
+    if (clientFallback && !isFutureDate(clientFallback)) {
+      if (!serverLastOnline || clientFallback > serverLastOnline) {
+        // Клиентский fallback новее — значит /sleep не успел записать
+        sleepAt = clientFallback
       }
     }
 
-    user.lastOnline = now
+    // Подсчет пассивного дохода
+    if (sleepAt && user.passiveIncome > 0) {
+      const diffSeconds = Math.floor((now - sleepAt) / 1000)
 
+      if (diffSeconds >= MIN_OFFLINE_SECONDS) {
+        const maxSeconds = MAX_OFFLINE_HOURS * 3600
+        const effectiveSeconds = Math.min(diffSeconds, maxSeconds)
+        const earned = Math.floor(user.passiveIncome * effectiveSeconds)
+
+        if (earned > 0) {
+          user.coins += earned
+          user.totalCoins += earned
+          req.passiveEarned = earned
+          req.passiveSeconds = effectiveSeconds
+        }
+      }
+    }
+
+    // Дефолт если req.passiveEarned не был установлен
+    if (req.passiveEarned === undefined) {
+      req.passiveEarned = 0
+      req.passiveSeconds = 0
+    }
+
+    user.lastOnline = now
     await user.save()
 
     req.userDoc = user
-
     next()
+
   } catch (err) {
     console.error('Ошибка passiveIncome middleware:', err)
     res.status(500).json({ message: 'Ошибка сервера' })
