@@ -24,6 +24,10 @@ app.use('/auth', authRoutes)
 app.use('/items', itemsRoutes)
 app.use('/user', userRoutes)
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' })
+})
+
 app.listen(process.env.PORT || 3001, () => {
   console.log(`Сервер запущен на порту ${process.env.PORT}`)
 })
